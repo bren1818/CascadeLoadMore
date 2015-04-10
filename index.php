@@ -188,7 +188,7 @@
 						$pagingPages = array();
 						//$pagingPages[] = 1;
 						
-						for( $x = 1; $x < $PAGE_BEFORE_AFTER; $x++ ){
+						for( $x = 1; $x <= $PAGE_BEFORE_AFTER; $x++ ){
 							if( $x < $totalPages ){
 								$pagingPages[] = $x;
 							}
@@ -199,6 +199,7 @@
 						}
 						
 						
+						
 						for( $x = ($CURRENT_PAGE - $PAGE_BEFORE_AFTER); $x < ($CURRENT_PAGE + $PAGE_BEFORE_AFTER);  $x++ ){
 							if( $x < $totalPages && $x > 1){
 								$pagingPages[] = $x;
@@ -206,7 +207,7 @@
 						}
 						
 						if( ($CURRENT_PAGE + $PAGE_BEFORE_AFTER) <  ($totalPages - $PAGE_BEFORE_AFTER) )  {
-							$pagingPages[] = $PAGE_DELEMITER;
+							$pagingPages[] = $PAGE_DELEMITER.'.';
 						}
 						
 						for( $x = ($totalPages - $PAGE_BEFORE_AFTER); $x <= $totalPages; $x++ ){
@@ -220,7 +221,7 @@
 						echo '<div class="pageNavgation">';
 							foreach( $pagingPages as $page ){
 								echo '<span class="pageNav '.($page==$CURRENT_PAGE?'current':'').'">';
-								if( $page != $PAGE_DELEMITER ){
+								if( $page != $PAGE_DELEMITER && $page != $PAGE_DELEMITER.'.' ){
 									echo '<a href="?page='.$page.'&category='.$searchCategory.'&search='.$searchFilter.'">'.$page.'</a>';
 								}else{
 									echo $PAGE_DELEMITER;
