@@ -7,19 +7,25 @@
 	$conn = getConnection();
 	$searching = 0;
 	$searchCategory = "";
+	$searchFilter = "";
 	
 	$PAGE_SIZE = 8;
 	$PAGE_BEFORE_AFTER = 3;
 	$PAGE_DELEMITER = "...";
 	$CURRENT_PAGE = 1;
-	
+	$SITE_URL = "http://wlu.ca/";
 	
 	if (strtoupper($_SERVER['REQUEST_METHOD']) == 'POST'){
 		$searching = 1;
 		if( isset($_POST) && isset($_POST['category']) && $_POST['category'] != "" ){
 			$searchCategory = $_POST['category'];
 		}
+		
+		if( isset($_POST) && isset($_POST['search']) && $_POST['search'] != "" ){
+			$searchFilter = $_POST['search'];
+		}
 	}
+
 
 	if( isset($_REQUEST) && isset($_REQUEST['page']) && $_REQUEST['page'] != "" ){
 		$CURRENT_PAGE = $_REQUEST['page'];
@@ -27,15 +33,19 @@
 		$CURRENT_PAGE = 1;
 	}
 	
-	if( isset($_REQUEST) && $_REQUEST['category'] && $_REQUEST['category'] != "" ){
+	if( isset($_REQUEST) && isset($_REQUEST['category']) && $_REQUEST['category'] != "" ){
 		$searching = 1;
 		$searchCategory = $_REQUEST['category'];
+	}
+	
+	if( isset($_REQUEST) && isset($_REQUEST['search']) && $_REQUEST['search'] != "" ){
+		$searchFilter = $_REQUEST['search'];
 	}
 	
 	$query = $conn->prepare("SELECT DISTINCT(`value`) as `category` FROM `metadata_custom` WHERE `field` = 'tags'");
 	
 	$categories = array();
-	
+	$categories[] = "ALL";
 	if( $query->execute() ){
 		while( $result = $query->fetch() ){
 			if( trim($result["category"]) != ""  ){
@@ -58,6 +68,7 @@
 			}
 		?>
 		</select>
+		<input type="text" name="search" value="<?php echo $searchFilter; ?>" placeholder="keyword to search for" />
 		<input type="submit" value="Submit"/>
 	</form>
 	<hr />
@@ -72,7 +83,11 @@
 	if( $searching && $searchCategory != ""){
 		echo '<input type="hidden" value="'.$searchCategory.'" />';
 		
-		echo "<p>Search for : ".$searchCategory.'</p>';
+		if( $searchFilter != "" ){
+			echo "<p>Search for &ldquo;".$searchFilter."&rdquo;  in: ".$searchCategory.'</p>';
+		}else{
+			echo "<p>Listing items in: ".$searchCategory.'</p>';
+		}
 		
 		$count = $conn->prepare("SELECT Count(mdc.`page_id`) as `cnt`		
 								FROM 
@@ -86,10 +101,18 @@
 								ON
 									md.`id` = p.`metadata_id`
 								WHERE 
-									mdc.`field` = 'tags' AND mdc.`value` LIKE :category
+									mdc.`field` = 'tags' AND mdc.`value` LIKE :category 
+									AND 
+									(p.`content` LIKE :search OR md.`display_name` LIKE :search OR md.`title` LIKE :search)
 								");
-								
-		$count->bindParam(":category", $searchCategory);
+		if( $searchCategory != "ALL" ){						
+			$count->bindParam(":category", $searchCategory);
+		}else{
+			$cat = "%%";
+			$count->bindParam(":category", $cat);
+		}
+		$ss = '%'.$searchFilter.'%';
+		$count->bindParam(":search", $ss);
 		
 		if( $count->execute() ){
 			
@@ -103,6 +126,7 @@
 											p.`name`,
 											p.`cms_id`,
 											p.`content`,
+											p.`path`,
 											md.`display_name`,
 											md.`title`,
 											md.`description` 
@@ -119,17 +143,28 @@
 											md.`id` = p.`metadata_id`
 										WHERE 
 											mdc.`field` = 'tags' AND mdc.`value` LIKE :category
+											AND
+											(p.`content` LIKE :search OR md.`display_name` LIKE :search OR md.`title` LIKE :search)
 										ORDER BY
 											p.`name`
 										ASC
 										
 										LIMIT :start, :pageSize");
-										
-				$query->bindParam(":category", $searchCategory);
+				
+				if( $searchCategory != "ALL" ){						
+					$query->bindParam(":category", $searchCategory);
+				}else{
+					$cat = "%%";
+					$query->bindParam(":category", $cat);
+				}
+		
+				
 				
 				$start = ($CURRENT_PAGE-1) * $PAGE_SIZE;
 				
 				$query->bindParam(":start", $start, PDO::PARAM_INT);
+				$ss = '%'.$searchFilter.'%';
+				$query->bindParam(":search", $ss);
 				$query->bindParam(":pageSize", $PAGE_SIZE, PDO::PARAM_INT);
 				
 				if( $query->execute() ){
@@ -137,12 +172,14 @@
 					$to = ((($CURRENT_PAGE-1) * $PAGE_SIZE) + $query->rowCount());
 					$to = ($to > $totalResults ? $totalResults : $to);
 					
-					echo "<p>Displaying Results: ".( ($CURRENT_PAGE-1) * $PAGE_SIZE). ' to '. $to
-					
-					.' of: '.$totalResults.'</p><br />';
+					echo "<p>Displaying Results: ".( ($CURRENT_PAGE-1) * $PAGE_SIZE). ' to '. $to.' of: '.$totalResults.'</p><br />';
 					
 					while( $row = $query->fetch() ){
-						echo utf8_encode($row["display_name"]).'<br />';
+						$title = utf8_encode($row["display_name"]);
+						if( trim($title) == "" ){
+							$title = utf8_encode($row["title"]);
+						}
+						echo '<p><a target="_blank" href="'.$SITE_URL.$row["path"].'.html">'.$title.'</a><br /></p>';
 					}
 					
 					if( $totalResults > $query->rowCount()  ){
@@ -184,7 +221,7 @@
 							foreach( $pagingPages as $page ){
 								echo '<span class="pageNav '.($page==$CURRENT_PAGE?'current':'').'">';
 								if( $page != $PAGE_DELEMITER ){
-									echo '<a href="?page='.$page.'&category='.$searchCategory.'">'.$page.'</a>';
+									echo '<a href="?page='.$page.'&category='.$searchCategory.'&search='.$searchFilter.'">'.$page.'</a>';
 								}else{
 									echo $PAGE_DELEMITER;
 								}
@@ -201,5 +238,3 @@
 
 ?>
 <hr />
-
-Test Complete
