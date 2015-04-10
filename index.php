@@ -179,7 +179,37 @@
 						if( trim($title) == "" ){
 							$title = utf8_encode($row["title"]);
 						}
-						echo '<p><a target="_blank" href="'.$SITE_URL.$row["path"].'.html">'.$title.'</a><br /></p>';
+						echo '<p><a target="_blank" href="'.$SITE_URL.$row["path"].'.html">'.$title.'</a><br />';
+						//parse the html from $row["content"]
+							//find string, cut from 100chars before to 100chars after,
+							//strip the html entities
+							//strip the html characters
+							//bold the word
+							//return the string
+							
+							$summaryLength = 250;
+							$string = $row["content"];
+							//use page data
+							$summary = getSummary($string, $searchFilter, $summaryLength);
+							if( $summary == "..."){
+								//use meta-data description
+								$summary = getSummary($row["description"], $searchFilter, $summaryLength);
+							}
+							
+							if( $summary == "..."){
+								//use display name
+								$summary = getSummary(utf8_encode($row["display_name"]), $searchFilter, $summaryLength);
+							}
+							
+							if( $summary == "..."){
+								//use title
+								$summary = getSummary(utf8_encode($row["title"]), $searchFilter, $summaryLength);
+							}	
+						
+							echo $summary;
+							
+							
+						echo '</p>';
 					}
 					
 					if( $totalResults > $query->rowCount()  ){
