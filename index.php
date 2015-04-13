@@ -26,7 +26,6 @@
 		}
 	}
 
-
 	if( isset($_REQUEST) && isset($_REQUEST['page']) && $_REQUEST['page'] != "" ){
 		$CURRENT_PAGE = $_REQUEST['page'];
 	}else{
@@ -54,8 +53,20 @@
 		}
 	}
 	?>
+	
+	<link rel="stylesheet" href="css/chosen.min.css" />
+	<script src="js/jquery-1.11.2.min.js"></script>
+	<script src="js/chosen.jquery.min.js"></script>
+	<script>
+		$(function(){
+			$('select[name="category"]').chosen();
+		});
+	</script>
+	
 	<form method="post" action="index.php">
-		<select name="category">
+	
+	
+		<select name="category" multiple>
 		<?php
 			if( sizeof($categories) > 0){
 				foreach($categories as $cat){
@@ -71,13 +82,17 @@
 		<input type="text" name="search" value="<?php echo $searchFilter; ?>" placeholder="keyword to search for" />
 		<input type="submit" value="Submit"/>
 	</form>
+
 	<hr />
 	
 	<form method="post" action="index.php">
+	
 	<style>
 		.pageNav{ margin: 3px 3px; display: inline-block; }
 		.pageNav.current{ font-weight: bold; }
+		.imgContainer{ height: 270px; width: 270px; display: table-cell; text-align: center; vertical-align: middle; }
 	</style>
+	
 	<?php
 	//echo '<pre>'.print_r($categories,true).'</pre>';
 	if( $searching && $searchCategory != ""){
@@ -111,8 +126,11 @@
 			$cat = "%%";
 			$count->bindParam(":category", $cat);
 		}
+		
 		$ss = '%'.$searchFilter.'%';
 		$count->bindParam(":search", $ss);
+		//$nl = "_%";
+		//$count->bindParam(":nl", $nl);
 		
 		if( $count->execute() ){
 			
@@ -144,7 +162,8 @@
 										WHERE 
 											mdc.`field` = 'tags' AND mdc.`value` LIKE :category
 											AND
-											(p.`content` LIKE :search OR md.`display_name` LIKE :search OR md.`title` LIKE :search)
+											(p.`content` LIKE :search OR md.`display_name` LIKE :search OR md.`title` LIKE :search) 
+											
 										ORDER BY
 											p.`name`
 										ASC
@@ -179,7 +198,38 @@
 						if( trim($title) == "" ){
 							$title = utf8_encode($row["title"]);
 						}
-						echo '<p><a target="_blank" href="'.$SITE_URL.$row["path"].'.html">'.$title.'</a><br />';
+						
+						$url = $SITE_URL.$row["path"].'.html';
+						
+						echo '<p><a target="_blank" href="'.$url.'">'.$title.'</a><br />';
+						
+					//	error_reporting(0);
+						$pageHTML = file_get_contents($url);
+						$doc = new DOMDocument();
+						libxml_use_internal_errors(true);
+						$doc->loadHTML($pageHTML);
+						libxml_clear_errors();
+						$xpath = new DomXpath($doc);
+						$pageImage = "";
+						
+						$images = $xpath->query("//div[contains(concat(' ',normalize-space(@class),' '),' row ')]//div[contains(concat(' ',normalize-space(@class),' '),' row ')]//img");
+						foreach($images as $image){
+							$pageImage = array(
+								'alt' => $image->getAttribute("alt"),
+								'src' => $image->getAttribute("src")
+							);
+							break;
+						}
+
+						if( $pageImage != ""){
+							$trueImageURL =  'http://wlu.ca/images'.substr( $pageImage["src"], (strpos($pageImage["src"], "/images") + 7) );
+							echo '<span class="imgContainer"><img style="width: 100%" src="'.$trueImageURL.'" alt="'.$pageImage["alt"].'" /></span><br />'; 
+						}
+						
+						//echo '<pre>'.print_r($pageImages, true).'</pre>'; 
+						
+						
+						
 						//parse the html from $row["content"]
 							//find string, cut from 100chars before to 100chars after,
 							//strip the html entities
@@ -266,6 +316,8 @@
 		}
 	}
 	
+	//APIFetch { curr_page , category, term, items_per_fetch }
+		//API REPLY { curr_page, pages, }
 
 ?>
 <hr />
