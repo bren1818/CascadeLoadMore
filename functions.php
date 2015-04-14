@@ -45,4 +45,6 @@
 		
 		return $string.'...';
 	}
+	
+	function pa($arr){ echo '<pre>'.print_r($arr,true).'</pre>'; }
 ?>

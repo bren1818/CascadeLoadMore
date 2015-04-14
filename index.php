@@ -17,8 +17,6 @@
 	$ascDesc = "ASC";
 	$orderBy = "n";
 	
-	function pa($arr){ echo '<pre>'.print_r($arr,true).'</pre>'; }
-	
 	if (strtoupper($_SERVER['REQUEST_METHOD']) == 'POST'){
 		
 		//pa($_POST);
@@ -152,6 +150,8 @@
 
 	<hr />
 	
+	API String: <?php echo '?page=1&category='.implode(",",$searchCategory).'&search='.$searchFilter.'&ascDesc='.$ascDesc.'&orderBy='.$orderBy; ?>
+	
 	<form method="post" action="index.php">
 	
 	<style>
@@ -161,7 +161,7 @@
 	</style>
 	
 	<?php
-	//echo '<pre>'.print_r($categories,true).'</pre>';
+	
 	if( $searching && $searchCategory != ""){
 		echo '<input type="hidden" value="'.implode(",",$searchCategory).'" />';
 		
@@ -240,7 +240,6 @@
 				$count->bindParam($var, $searchCategory[$y] );
 			}
 			
-			//$cats = implode( ",", $searchCategory );
 		}else{
 			//error
 			echo "Error: No Category";
@@ -249,8 +248,6 @@
 
 		$ss = '%'.$searchFilter.'%';
 		$count->bindParam(":search", $ss);
-		
-		
 		
 		if( $count->execute() ){
 			
@@ -304,9 +301,7 @@
 						$query->bindParam(":category", $category);
 						
 				}else if(is_array($searchCategory) && sizeof($searchCategory) > 1){
-					
-					//echo "Multiple Cats";
-					//exit;
+					//Multiple Categories
 					
 					$query = "SELECT 
 								`page_id`,
@@ -372,9 +367,6 @@
 					
 					
 				}		
-						
-						
-							
 				
 				$start = ($CURRENT_PAGE-1) * $PAGE_SIZE;
 				
