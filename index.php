@@ -6,7 +6,7 @@
 	
 	$conn = getConnection();
 	$searching = 0;
-	$searchCategory = "";
+	$searchCategory = array();
 	$searchFilter = "";
 	
 	$PAGE_SIZE = 8;
@@ -14,8 +14,15 @@
 	$PAGE_DELEMITER = "...";
 	$CURRENT_PAGE = 1;
 	$SITE_URL = "http://wlu.ca/";
+	$ascDesc = "ASC";
+	$orderBy = "n";
+	
+	function pa($arr){ echo '<pre>'.print_r($arr,true).'</pre>'; }
 	
 	if (strtoupper($_SERVER['REQUEST_METHOD']) == 'POST'){
+		
+		//pa($_POST);
+		
 		$searching = 1;
 		if( isset($_POST) && isset($_POST['category']) && $_POST['category'] != "" ){
 			$searchCategory = $_POST['category'];
@@ -24,21 +31,70 @@
 		if( isset($_POST) && isset($_POST['search']) && $_POST['search'] != "" ){
 			$searchFilter = $_POST['search'];
 		}
-	}
-
-	if( isset($_REQUEST) && isset($_REQUEST['page']) && $_REQUEST['page'] != "" ){
-		$CURRENT_PAGE = $_REQUEST['page'];
+		
+		if( isset($_POST) && isset($_POST['ascDesc']) && $_POST['ascDesc'] != "" ){
+			if( $_POST['ascDesc'] == "Ascending" ){
+				$ascDesc = "ASC";
+			}else if( $_POST['ascDesc'] == "Descending" ){
+				$ascDesc = "DESC";
+			}else{
+				$ascDesc = "ASC";
+			}
+		}
+		
+		if( isset($_POST) && isset($_POST['orderBy']) && $_POST['orderBy'] != "" ){
+			if( $_POST['orderBy'] == "cd" ){ //creation date
+				$orderBy = "cd";
+			}else if( $_POST['orderBy'] == "lpd" ){ //publish date
+				$orderBy = "lpd";
+			}else{
+				$orderBy = "n"; //name
+			}
+		}
+		
+		if( ! is_array($searchCategory) || sizeof($searchCategory) == 0  ){
+			$searchCategory[] = "ALL";
+		}
+		
 	}else{
-		$CURRENT_PAGE = 1;
-	}
+
+		if( isset($_REQUEST) && isset($_REQUEST['page']) && $_REQUEST['page'] != "" ){
+			$CURRENT_PAGE = $_REQUEST['page'];
+		}else{
+			$CURRENT_PAGE = 1;
+		}
+		
+		if( isset($_REQUEST) && isset($_REQUEST['category']) && $_REQUEST['category'] != "" ){
+			$searching = 1;
+			$searchCategory = explode(",",$_REQUEST['category']);
+		}else{
+			$searchCategory[] = "ALL";
+		}
+		
+		if( isset($_REQUEST) && isset($_REQUEST['search']) && $_REQUEST['search'] != "" ){
+			$searchFilter = $_REQUEST['search'];
+		}
+		
+		if( isset($_REQUEST) && isset($_REQUEST['ascDesc']) && $_REQUEST['ascDesc'] != "" ){
+			if( $_REQUEST['ascDesc'] == "ASC" ){
+				$ascDesc = "ASC";
+			}else if( $_REQUEST['ascDesc'] == "DESC" ){
+				$ascDesc = "DESC";
+			}else{
+				$ascDesc = "ASC";
+			}
+		}
+		
+		if( isset($_REQUEST) && isset($_REQUEST['orderBy']) && $_REQUEST['orderBy'] != "" ){
+			if( $_REQUEST['orderBy'] == "cd" ){ //creation date
+				$orderBy = "cd";
+			}else if( $_REQUEST['orderBy'] == "lpd" ){ //publish date
+				$orderBy = "lpd";
+			}else{
+				$orderBy = "n"; //name
+			}
+		}
 	
-	if( isset($_REQUEST) && isset($_REQUEST['category']) && $_REQUEST['category'] != "" ){
-		$searching = 1;
-		$searchCategory = $_REQUEST['category'];
-	}
-	
-	if( isset($_REQUEST) && isset($_REQUEST['search']) && $_REQUEST['search'] != "" ){
-		$searchFilter = $_REQUEST['search'];
 	}
 	
 	$query = $conn->prepare("SELECT DISTINCT(`value`) as `category` FROM `metadata_custom` WHERE `field` = 'tags'");
@@ -59,19 +115,19 @@
 	<script src="js/chosen.jquery.min.js"></script>
 	<script>
 		$(function(){
-			$('select[name="category"]').chosen();
+			$('select[name="category[]"]').chosen();
 		});
 	</script>
 	
 	<form method="post" action="index.php">
 	
 	
-		<select name="category" multiple>
+		<select name="category[]" multiple>
 		<?php
 			if( sizeof($categories) > 0){
 				foreach($categories as $cat){
 					if( $searching ){
-						echo '<option value="'.$cat.'"'.($cat==$searchCategory? ' selected' : '').'>'.$cat.'</option>';
+						echo '<option value="'.$cat.'"'.(in_array($cat,$searchCategory) ? ' selected' : '').'>'.$cat.'</option>';
 					}else{
 						echo '<option value="'.$cat.'">'.$cat.'</option>';
 					}
@@ -80,6 +136,17 @@
 		?>
 		</select>
 		<input type="text" name="search" value="<?php echo $searchFilter; ?>" placeholder="keyword to search for" />
+		Order by:
+		<select name="orderBy">
+			<option value="n" <?php echo ($orderBy == "n") ? 'selected' : ''; ?>>Name</option>
+			<option value="cd" <?php echo ($orderBy == "cd") ? 'selected' : ''; ?>>Creation Date</option>
+			<option value="lpd" <?php echo ($orderBy == "lpd") ? 'selected' : ''; ?>>Last Publish Date</option>
+		</select>
+		<select name="ascDesc">
+			<option value="Ascending" <?php echo ($ascDesc == "ASC") ? 'selected' : ''; ?>>Ascending</option>
+			<option value="Descending" <?php echo ($ascDesc != "ASC") ? 'selected' : ''; ?>>Descending</option>
+		</select>
+		
 		<input type="submit" value="Submit"/>
 	</form>
 
@@ -96,15 +163,31 @@
 	<?php
 	//echo '<pre>'.print_r($categories,true).'</pre>';
 	if( $searching && $searchCategory != ""){
-		echo '<input type="hidden" value="'.$searchCategory.'" />';
+		echo '<input type="hidden" value="'.implode(",",$searchCategory).'" />';
 		
 		if( $searchFilter != "" ){
-			echo "<p>Search for &ldquo;".$searchFilter."&rdquo;  in: ".$searchCategory.'</p>';
+			echo "<p>Search for &ldquo;".$searchFilter."&rdquo;  in: ".implode(", ",$searchCategory).'</p>';
 		}else{
-			echo "<p>Listing items in: ".$searchCategory.'</p>';
+			echo "<p>Listing items in: ".implode(", ",$searchCategory).'</p>';
 		}
 		
-		$count = $conn->prepare("SELECT Count(mdc.`page_id`) as `cnt`		
+		$cats = "";
+		if( is_array($searchCategory) && sizeof($searchCategory) > 0 ){
+			$num = 0;
+			foreach( $searchCategory as $category ){
+				if( $num == 0 ){
+					$cats = "(mdc.`field` = 'tags' AND mdc.`value` LIKE :category".$num.") ";
+				}else{
+					$cats.=" OR  (mdc.`field` = 'tags' AND mdc.`value` LIKE :category".$num.") ";
+				}
+				$num++;
+			}
+			
+		}else{
+			$cats = "mdc.`value` LIKE :category";
+		}
+		
+		$query = "SELECT Count(mdc.`page_id`) as `cnt`		
 								FROM 
 									`metadata_custom` mdc 
 								INNER JOIN 
@@ -116,68 +199,126 @@
 								ON
 									md.`id` = p.`metadata_id`
 								WHERE 
-									mdc.`field` = 'tags' AND mdc.`value` LIKE :category 
-									AND 
-									(p.`content` LIKE :search OR md.`display_name` LIKE :search OR md.`title` LIKE :search)
-								");
-		if( $searchCategory != "ALL" ){						
-			$count->bindParam(":category", $searchCategory);
+									(
+										".$cats."
+									)
+									AND (p.`content` LIKE :search OR md.`display_name` LIKE :search OR md.`title` LIKE :search)
+								";
+		
+		$count = $conn->prepare($query);
+		
+		/*
+			How to properly Group the results
+		
+		SELECT
+		
+			Count(`page_id`) as `cnt`  ##note no aliased tables
+			
+		FROM (
+		
+				SELECT mdc.`page_id` FROM `metadata_custom` mdc INNER JOIN `page` p ON p.`id` = mdc.`page_id` INNER JOIN `metadata` md ON md.`id` = p.`metadata_id` WHERE mdc.`field` = 'tags' AND ( mdc.`value` LIKE "Faculty of Arts" ) AND (p.`content` LIKE "%%" OR md.`display_name` LIKE "%%" OR md.`title` LIKE "%%" )  
+			
+				UNION DISTINCT ##Distinct means no dupes
+		 
+				SELECT mdc.`page_id` FROM `metadata_custom` mdc INNER JOIN `page` p ON p.`id` = mdc.`page_id` INNER JOIN `metadata` md ON md.`id` = p.`metadata_id` WHERE mdc.`field` = 'tags' AND ( mdc.`value` LIKE "Future Students" ) AND (p.`content` LIKE "%%" OR md.`display_name` LIKE "%%" OR md.`title` LIKE "%%")
+			  ) 
+		as groupedResult
+		
+		*/
+		
+		
+		
+		
+		
+		//echo $query;
+								
+		if( is_array($searchCategory) && sizeof($searchCategory) > 0 ){
+			$num = 0;
+			foreach( $searchCategory as $category ){
+				$param = ":category".$num;
+				$category = trim($category);
+				if( $category == "ALL" ){
+					$cat = "%%";
+					$count->bindParam($param, $cat);
+				}else{
+					//echo "Bind ".$param." with ".$category;
+					$count->bindParam($param, $category);
+				}
+				$num++;
+			}
 		}else{
 			$cat = "%%";
 			$count->bindParam(":category", $cat);
-		}
+		}	
 		
 		$ss = '%'.$searchFilter.'%';
 		$count->bindParam(":search", $ss);
-		//$nl = "_%";
-		//$count->bindParam(":nl", $nl);
+
 		
 		if( $count->execute() ){
 			
 			$count = $count->fetch();
+
 			
 			$totalResults = $count["cnt"];
+	
 		
 			if( $totalResults > 0 ){
-				$query = $conn->prepare("SELECT 
-											mdc.`page_id`,
-											p.`name`,
-											p.`cms_id`,
-											p.`content`,
-											p.`path`,
-											md.`display_name`,
-											md.`title`,
-											md.`description` 
-											
-										FROM 
-											`metadata_custom` mdc 
-										INNER JOIN 
-											`page` p 
-										ON
-											p.`id` = mdc.`page_id`
-										INNER JOIN 
-											`metadata` md 
-										ON
-											md.`id` = p.`metadata_id`
-										WHERE 
-											mdc.`field` = 'tags' AND mdc.`value` LIKE :category
-											AND
-											(p.`content` LIKE :search OR md.`display_name` LIKE :search OR md.`title` LIKE :search) 
-											
-										ORDER BY
-											p.`name`
-										ASC
-										
-										LIMIT :start, :pageSize");
+				$query = 
+						"SELECT 
+							mdc.`page_id`,
+							p.`name`,
+							p.`cms_id`,
+							p.`content`,
+							p.`path`,
+							md.`display_name`,
+							md.`title`,
+							md.`description`,
+							md.`last_published_at`,
+							md.`created_at`
+						FROM 
+							`metadata_custom` mdc 
+						INNER JOIN 
+							`page` p 
+						ON
+							p.`id` = mdc.`page_id`
+						INNER JOIN 
+							`metadata` md 
+						ON
+							md.`id` = p.`metadata_id`
+						WHERE 
+							mdc.`field` = 'tags' 
+							AND 
+							".$cats."
+							AND	(p.`content` LIKE :search OR md.`display_name` LIKE :search OR md.`title` LIKE :search) 
+							
+						ORDER BY
+							".($orderBy == "n" ? "p.`name`" : ( $orderBy == "lpd" ? 'md.`last_published_at`' : 'md.`created_at`' ) )."
+						".$ascDesc."
+						LIMIT :start, :pageSize";
+						
+				$query = $conn->prepare($query);						
 				
-				if( $searchCategory != "ALL" ){						
-					$query->bindParam(":category", $searchCategory);
+				
+				if( is_array($searchCategory) && sizeof($searchCategory) > 0 )
+				{
+					$num = 0;
+					foreach( $searchCategory as $category ){
+						$param = ":category".$num;
+						$category = trim($category);
+						if( $category == "ALL" ){
+							$cat = "%%";
+							$query->bindParam($param, $cat);
+						}else{
+							//echo "Bind ".$param." with ".$category;
+							$query->bindParam($param, $category);
+						}
+						$num++;
+					}
 				}else{
 					$cat = "%%";
 					$query->bindParam(":category", $cat);
-				}
-		
-				
+				}	
 				
 				$start = ($CURRENT_PAGE-1) * $PAGE_SIZE;
 				
@@ -203,15 +344,17 @@
 						
 						echo '<p><a target="_blank" href="'.$url.'">'.$title.'</a><br />';
 						
-					//	error_reporting(0);
+					
 						$pageHTML = file_get_contents($url);
 						$doc = new DOMDocument();
+						
+						//keep the errors away in parsing
 						libxml_use_internal_errors(true);
 						$doc->loadHTML($pageHTML);
 						libxml_clear_errors();
 						$xpath = new DomXpath($doc);
 						$pageImage = "";
-						
+						//use xpath selector to 
 						$images = $xpath->query("//div[contains(concat(' ',normalize-space(@class),' '),' row ')]//div[contains(concat(' ',normalize-space(@class),' '),' row ')]//img");
 						foreach($images as $image){
 							$pageImage = array(
@@ -221,6 +364,11 @@
 							break;
 						}
 
+						
+						if(  strpos($pageImage["src"], "hawk-map-404.jpg") !== false){
+							$pageImage = "";
+						}
+						
 						if( $pageImage != ""){
 							$trueImageURL =  'http://wlu.ca/images'.substr( $pageImage["src"], (strpos($pageImage["src"], "/images") + 7) );
 							echo '<span class="imgContainer"><img style="width: 100%" src="'.$trueImageURL.'" alt="'.$pageImage["alt"].'" /></span><br />'; 
@@ -302,7 +450,7 @@
 							foreach( $pagingPages as $page ){
 								echo '<span class="pageNav '.($page==$CURRENT_PAGE?'current':'').'">';
 								if( $page != $PAGE_DELEMITER && $page != $PAGE_DELEMITER.'.' ){
-									echo '<a href="?page='.$page.'&category='.$searchCategory.'&search='.$searchFilter.'">'.$page.'</a>';
+									echo '<a href="?page='.$page.'&category='.implode(",",$searchCategory).'&search='.$searchFilter.'&ascDesc='.$ascDesc.'&orderBy='.$orderBy.'">'.$page.'</a>';
 								}else{
 									echo $PAGE_DELEMITER;
 								}
@@ -312,6 +460,10 @@
 						
 					}
 				}
+			}else{
+				
+				echo "No Results Found";
+				
 			}
 		}
 	}
