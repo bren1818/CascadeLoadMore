@@ -171,99 +171,96 @@
 			echo "<p>Listing items in: ".implode(", ",$searchCategory).'</p>';
 		}
 		
-		$cats = "";
-		if( is_array($searchCategory) && sizeof($searchCategory) > 0 ){
-			$num = 0;
-			foreach( $searchCategory as $category ){
-				if( $num == 0 ){
-					$cats = "(mdc.`field` = 'tags' AND mdc.`value` LIKE :category".$num.") ";
-				}else{
-					$cats.=" OR  (mdc.`field` = 'tags' AND mdc.`value` LIKE :category".$num.") ";
-				}
-				$num++;
-			}
+		//$cats = "";
+		if( is_array($searchCategory) && sizeof($searchCategory) == 1 ){
+			/* One Category Search */
 			
-		}else{
-			$cats = "mdc.`value` LIKE :category";
-		}
-		
-		$query = "SELECT Count(mdc.`page_id`) as `cnt`		
+			$query = "SELECT 
+				Count(`page_id`) as `cnt` 
+				FROM 
+					`metadata_custom` mdc 
+				INNER JOIN 
+					`page` p ON p.`id` = mdc.`page_id` 
+				INNER JOIN 
+					`metadata` md ON md.`id` = p.`metadata_id` 
+				WHERE 
+					mdc.`field` = 'tags' 
+					AND 
+					mdc.`value` LIKE :category
+					AND 
+					(p.`content` LIKE :search OR md.`display_name` LIKE :search OR md.`title` LIKE :search )";
+			
+			$count = $conn->prepare($query);
+			
+			$category = $searchCategory[0];
+			if( $category == "ALL" ){
+				$category = "%%";
+			}
+			//$cats = $category;
+			$count->bindParam(":category", $category);
+			
+		}else if(is_array($searchCategory) && sizeof($searchCategory) > 1){
+			/* Multiple Category Search */
+
+			$query = "SELECT
+				Count(`page_id`) as `cnt`
+				FROM (";
+					for($x=0; $x < sizeof($searchCategory); $x++ ){
+						
+						if( $x > 0){
+							$query .= " UNION DISTINCT ";
+						}
+						
+						$category = ":cat".$x;
+						$search =  ":search";
+						
+						$query .= " 
+								SELECT 
+									mdc.`page_id` 
 								FROM 
 									`metadata_custom` mdc 
 								INNER JOIN 
-									`page` p 
-								ON
-									p.`id` = mdc.`page_id`
+									`page` p ON p.`id` = mdc.`page_id` 
 								INNER JOIN 
-									`metadata` md 
-								ON
-									md.`id` = p.`metadata_id`
+									`metadata` md ON md.`id` = p.`metadata_id` 
 								WHERE 
-									(
-										".$cats."
-									)
-									AND (p.`content` LIKE :search OR md.`display_name` LIKE :search OR md.`title` LIKE :search)
-								";
-		
-		$count = $conn->prepare($query);
-		
-		/*
-			How to properly Group the results
-		
-		SELECT
-		
-			Count(`page_id`) as `cnt`  ##note no aliased tables
+									mdc.`field` = 'tags' 
+								AND 
+									mdc.`value` LIKE ".$category."  
+								AND 
+									(p.`content` LIKE ".$search." OR md.`display_name` LIKE ".$search." OR md.`title` LIKE ".$search." ) ";
+					}
+					
+			$query .= ") as gr";
 			
-		FROM (
-		
-				SELECT mdc.`page_id` FROM `metadata_custom` mdc INNER JOIN `page` p ON p.`id` = mdc.`page_id` INNER JOIN `metadata` md ON md.`id` = p.`metadata_id` WHERE mdc.`field` = 'tags' AND ( mdc.`value` LIKE "Faculty of Arts" ) AND (p.`content` LIKE "%%" OR md.`display_name` LIKE "%%" OR md.`title` LIKE "%%" )  
+			$count = $conn->prepare($query);
 			
-				UNION DISTINCT ##Distinct means no dupes
-		 
-				SELECT mdc.`page_id` FROM `metadata_custom` mdc INNER JOIN `page` p ON p.`id` = mdc.`page_id` INNER JOIN `metadata` md ON md.`id` = p.`metadata_id` WHERE mdc.`field` = 'tags' AND ( mdc.`value` LIKE "Future Students" ) AND (p.`content` LIKE "%%" OR md.`display_name` LIKE "%%" OR md.`title` LIKE "%%")
-			  ) 
-		as groupedResult
-		
-		*/
-		
-		
-		
-		
-		
-		//echo $query;
-								
-		if( is_array($searchCategory) && sizeof($searchCategory) > 0 ){
-			$num = 0;
-			foreach( $searchCategory as $category ){
-				$param = ":category".$num;
-				$category = trim($category);
-				if( $category == "ALL" ){
-					$cat = "%%";
-					$count->bindParam($param, $cat);
-				}else{
-					//echo "Bind ".$param." with ".$category;
-					$count->bindParam($param, $category);
-				}
-				$num++;
+			for($y = 0; $y < sizeof($searchCategory); $y++){
+				$var = ":cat".$y;
+				$count->bindParam($var, $searchCategory[$y] );
 			}
+			
+			//$cats = implode( ",", $searchCategory );
 		}else{
-			$cat = "%%";
-			$count->bindParam(":category", $cat);
-		}	
-		
+			//error
+			echo "Error: No Category";
+			exit;
+		}
+
 		$ss = '%'.$searchFilter.'%';
 		$count->bindParam(":search", $ss);
-
+		
+		
 		
 		if( $count->execute() ){
 			
 			$count = $count->fetch();
-
-			
 			$totalResults = $count["cnt"];
-	
-		
+
 			if( $totalResults > 0 ){
+				
+				if( is_array($searchCategory) && sizeof($searchCategory) == 1 ){
+				
 				$query = 
 						"SELECT 
 							mdc.`page_id`,
@@ -289,7 +286,7 @@
 						WHERE 
 							mdc.`field` = 'tags' 
 							AND 
-							".$cats."
+							mdc.`value` LIKE :category
 							AND	(p.`content` LIKE :search OR md.`display_name` LIKE :search OR md.`title` LIKE :search) 
 							
 						ORDER BY
@@ -297,28 +294,87 @@
 						".$ascDesc."
 						LIMIT :start, :pageSize";
 						
-				$query = $conn->prepare($query);						
-				
-				
-				if( is_array($searchCategory) && sizeof($searchCategory) > 0 )
-				{
-					$num = 0;
-					foreach( $searchCategory as $category ){
-						$param = ":category".$num;
-						$category = trim($category);
+						$query = $conn->prepare($query);	
+						
+						$category = $searchCategory[0];
 						if( $category == "ALL" ){
-							$cat = "%%";
-							$query->bindParam($param, $cat);
-						}else{
-							//echo "Bind ".$param." with ".$category;
-							$query->bindParam($param, $category);
+							$category = "%%";
 						}
-						$num++;
+						
+						$query->bindParam(":category", $category);
+						
+				}else if(is_array($searchCategory) && sizeof($searchCategory) > 1){
+					
+					//echo "Multiple Cats";
+					//exit;
+					
+					$query = "SELECT 
+								`page_id`,
+								`name`,
+								`cms_id`,
+								`content`,
+								`path`,
+								`display_name`,
+								`title`,
+								`description`,
+								`last_published_at`,
+								`created_at`
+							FROM 
+							(";
+							
+					for($x=0; $x < sizeof($searchCategory); $x++ ){
+						if( $x > 0){
+							$query .= " UNION DISTINCT ";
+						}
+						$category = ":cat".$x;
+						$query .=	" SELECT 
+								mdc.`page_id`,
+								p.`name`,
+								p.`cms_id`,
+								p.`content`,
+								p.`path`,
+								md.`display_name`,
+								md.`title`,
+								md.`description`,
+								md.`last_published_at`,
+								md.`created_at`
+							FROM 
+								`metadata_custom` mdc 
+							INNER JOIN 
+								`page` p 
+							ON
+								p.`id` = mdc.`page_id`
+							INNER JOIN 
+								`metadata` md 
+							ON
+								md.`id` = p.`metadata_id`
+							WHERE 
+								mdc.`field` = 'tags' 
+								AND 
+								mdc.`value` LIKE ".$category."
+								AND	(p.`content` LIKE :search OR md.`display_name` LIKE :search OR md.`title` LIKE :search)"; 
+					}			
+
+					$query.=" ) mul
+							ORDER BY
+								".($orderBy == "n" ? "`name`" : ( $orderBy == "lpd" ? '`last_published_at`' : '`created_at`' ) )."
+							".$ascDesc."
+							LIMIT :start, :pageSize";
+							
+					$query = $conn->prepare($query);	
+					
+					for($y = 0; $y < sizeof($searchCategory); $y++){
+						$var = ":cat".$y;
+						$query->bindParam($var, $searchCategory[$y] );
 					}
-				}else{
-					$cat = "%%";
-					$query->bindParam(":category", $cat);
-				}	
+							
+					
+					
+					
+				}		
+						
+						
+							
 				
 				$start = ($CURRENT_PAGE-1) * $PAGE_SIZE;
 				
