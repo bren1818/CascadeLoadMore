@@ -14,7 +14,7 @@
 	$SITE_URL = "http://wlu.ca/";
 	$ascDesc = "ASC";
 	$orderBy = "n";
-	
+	$showImage = "yes";
 	$items = array();
 	$totalPages = 0;
 	$totalResults = 0;
@@ -63,6 +63,23 @@
 		}
 	}
 
+	if( isset($_REQUEST) && isset($_REQUEST['itemsPerPage']) && $_REQUEST['itemsPerPage'] != "" ){
+		if( $_REQUEST['itemsPerPage'] > 0 && $_REQUEST['itemsPerPage'] <= 30 ){ //creation date
+			$PAGE_SIZE = (int)$_REQUEST['itemsPerPage'];
+		}
+	}
+	
+	if( isset($_REQUEST) && isset($_REQUEST['showImage']) && $_REQUEST['showImage'] != "" ){
+		if( $_REQUEST['showImage'] != "yes" ){
+			$showImage = "no";
+		}
+	}
+	
+	//show image
+	//
+	
+	
+	
 	if( $searching && $searchCategory != ""){
 		$conn = getConnection();
 		if( is_array($searchCategory) && sizeof($searchCategory) == 1 ){
@@ -176,6 +193,8 @@
 							ON
 								md.`id` = p.`metadata_id`
 							WHERE 
+								md.`last_published_at` != 'NULL'
+								AND
 								mdc.`field` = 'tags' 
 								AND 
 								mdc.`value` LIKE :category
@@ -243,6 +262,8 @@
 								ON
 									md.`id` = p.`metadata_id`
 								WHERE 
+									md.`last_published_at` != 'NULL'
+									AND
 									mdc.`field` = 'tags' 
 									AND 
 									mdc.`value` LIKE ".$category."
@@ -293,35 +314,38 @@
 							
 							//echo '<p><a target="_blank" href="'.$url.'">'.$title.'</a><br />';
 							
-						
-							$pageHTML = file_get_contents($url);
-							$doc = new DOMDocument();
-							
-							//keep the errors away in parsing
-							libxml_use_internal_errors(true);
-							$doc->loadHTML($pageHTML);
-							libxml_clear_errors();
-							$xpath = new DomXpath($doc);
-							$pageImage = "";
-							$trueImageURL = "";
-							//use xpath selector to 
-							$images = $xpath->query("//div[contains(concat(' ',normalize-space(@class),' '),' row ')]//div[contains(concat(' ',normalize-space(@class),' '),' row ')]//img");
-							foreach($images as $image){
-								$pageImage = array(
-									'alt' => $image->getAttribute("alt"),
-									'src' => $image->getAttribute("src")
-								);
-								break;
-							}
-
-							
-							if(  strpos($pageImage["src"], "hawk-map-404.jpg") !== false){
+							if( $showImage == "yes" ){
+								$pageHTML = file_get_contents($url);
+								$doc = new DOMDocument();
+								
+								//keep the errors away in parsing
+								libxml_use_internal_errors(true);
+								$doc->loadHTML($pageHTML);
+								libxml_clear_errors();
+								$xpath = new DomXpath($doc);
 								$pageImage = "";
-							}
+								$trueImageURL = "";
+								//use xpath selector to 
 							
-							if( $pageImage != ""){
-								$trueImageURL =  'http://wlu.ca/images'.substr( $pageImage["src"], (strpos($pageImage["src"], "/images") + 7) );
-								//echo '<img src="'.$trueImageURL.'" alt="'.$pageImage["alt"].'" />'; 
+							
+								$images = $xpath->query("//div[contains(concat(' ',normalize-space(@class),' '),' row ')]//div[contains(concat(' ',normalize-space(@class),' '),' row ')]//img");
+								foreach($images as $image){
+									$pageImage = array(
+										'alt' => $image->getAttribute("alt"),
+										'src' => $image->getAttribute("src")
+									);
+									break;
+								}
+
+								
+								if(  strpos($pageImage["src"], "hawk-map-404.jpg") !== false){
+									$pageImage = "";
+								}
+								
+								if( $pageImage != ""){
+									$trueImageURL =  'http://wlu.ca/images'.substr( $pageImage["src"], (strpos($pageImage["src"], "/images") + 7) );
+									//echo '<img src="'.$trueImageURL.'" alt="'.$pageImage["alt"].'" />'; 
+								}
 							}
 							
 							//echo '<pre>'.print_r($pageImages, true).'</pre>'; 
@@ -360,7 +384,7 @@
 							//echo '</p>';
 							$tags = $row['tags'];
 							
-							$items[] = array("title"=> $title, "summary"=> $summary, "image"=>$trueImageURL,"tags"=>$tags);
+							$items[] = array("title"=> $title, "summary"=> $summary, "image"=>$trueImageURL,"tags"=>$tags,"url"=>$url,"created_at"=>$row["created_at"],"updated_at"=>$row["updated_at"],"last_published_at"=>$row["last_published_at"]);
 							
 						}
 						
@@ -369,52 +393,6 @@
 						$totalPages = 0;
 						if( $totalResults > $query->rowCount()  ){
 							$totalPages = round_up($totalResults / $PAGE_SIZE);
-							/*
-							$pagingPages = array();
-							//$pagingPages[] = 1;
-							
-							for( $x = 1; $x <= $PAGE_BEFORE_AFTER; $x++ ){
-								if( $x < $totalPages ){
-									$pagingPages[] = $x;
-								}
-							}
-							
-							if( ($CURRENT_PAGE - $PAGE_BEFORE_AFTER) >  ( $PAGE_BEFORE_AFTER) )  {
-								$pagingPages[] = $PAGE_DELEMITER;
-							}
-							
-							
-							
-							for( $x = ($CURRENT_PAGE - $PAGE_BEFORE_AFTER); $x < ($CURRENT_PAGE + $PAGE_BEFORE_AFTER);  $x++ ){
-								if( $x < $totalPages && $x > 1){
-									$pagingPages[] = $x;
-								}
-							}
-							
-							if( ($CURRENT_PAGE + $PAGE_BEFORE_AFTER) <  ($totalPages - $PAGE_BEFORE_AFTER) )  {
-								$pagingPages[] = $PAGE_DELEMITER.'.';
-							}
-							
-							for( $x = ($totalPages - $PAGE_BEFORE_AFTER); $x <= $totalPages; $x++ ){
-								if( $x > 1 && $x <= $totalPages){
-									$pagingPages[] = $x;
-								}
-							}
-							
-							$pagingPages = array_unique ( $pagingPages );
-							
-							echo '<div class="pageNavgation">';
-								foreach( $pagingPages as $page ){
-									echo '<span class="pageNav '.($page==$CURRENT_PAGE?'current':'').'">';
-									if( $page != $PAGE_DELEMITER && $page != $PAGE_DELEMITER.'.' ){
-										echo '<a href="?page='.$page.'&category='.implode(",",$searchCategory).'&search='.$searchFilter.'&ascDesc='.$ascDesc.'&orderBy='.$orderBy.'">'.$page.'</a>';
-									}else{
-										echo $PAGE_DELEMITER;
-									}
-									echo '</span>';
-								}
-							echo '</div>';
-							*/
 						}
 						
 						ob_clean();
@@ -423,8 +401,8 @@
 							$err = "PAGE OUT OF BOUNDS";
 						}
 						
-						$response = array("category"=>$searchCategory,"currentPage"=>$CURRENT_PAGE,"totalPages"=>$totalPages,"itemsPerPage"=>$PAGE_SIZE,"TotalResults" => $totalResults,"NumResults"=>sizeof($items),"results"=>$items, "Errors" => $err  );
-						
+						$response = array("category"=>$searchCategory,"currentPage"=>$CURRENT_PAGE,"totalPages"=>$totalPages,"itemsPerPage"=>$PAGE_SIZE,"TotalResults" => $totalResults,"NumResults"=>sizeof($items),"results"=>$items, "showImage"=>$showImage, "Errors" => $err  );
+						header("Access-Control-Allow-Origin: *");
 						header('Content-Type: application/json');
 						echo json_encode($response);
 						exit;
@@ -439,6 +417,7 @@
 					$err = "No Results Found";
 					
 					$response = array("category"=>$searchCategory,"currentPage"=>$CURRENT_PAGE,"totalPages"=>$totalPages,"itemsPerPage"=>$PAGE_SIZE,"TotalResults" => $totalResults,"NumResults"=>sizeof($items),"results"=>$items, "Errors" => $err  );
+					header("Access-Control-Allow-Origin: *");
 					header('Content-Type: application/json');
 					echo json_encode($response);
 					exit;
@@ -450,6 +429,7 @@
 		$err = "Empty Request";
 		
 		$response = array("category"=>$searchCategory,"currentPage"=>$CURRENT_PAGE,"totalPages"=>$totalPages,"itemsPerPage"=>$PAGE_SIZE,"TotalResults" => $totalResults,"NumResults"=>sizeof($items),"results"=>$items, "Errors" => $err  );
+		header("Access-Control-Allow-Origin: *");
 		header('Content-Type: application/json');
 		echo json_encode($response);
 		exit;

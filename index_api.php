@@ -9,13 +9,14 @@
 	$searchCategory = array();
 	$searchFilter = "";
 	
-	$PAGE_SIZE = 8;
+	$PAGE_SIZE = 10;
 	$PAGE_BEFORE_AFTER = 3;
 	$PAGE_DELEMITER = "...";
 	$CURRENT_PAGE = 1;
 	$SITE_URL = "http://wlu.ca/";
 	$ascDesc = "ASC";
 	$orderBy = "n";
+	$showImage = "yes";
 	
 	if (strtoupper($_SERVER['REQUEST_METHOD']) == 'POST'){
 		
@@ -54,6 +55,18 @@
 			$searchCategory[] = "ALL";
 		}
 		
+		if( isset($_POST) && isset($_POST['itemsPerPage']) && $_POST['itemsPerPage'] != "" ){
+			if( $_POST['itemsPerPage'] > 0 && $_POST['itemsPerPage'] <= 30 ){ //creation date
+				$PAGE_SIZE = $_POST['itemsPerPage'];
+			}
+		}
+		
+		if( isset($_POST) && isset($_POST['showImage']) && $_POST['showImage'] != "" ){
+			if( trim($_POST['showImage']) != "yes" ){ //creation date
+				$showImage = "no";
+			}
+		}
+		
 	}
 
 	$query = $conn->prepare("SELECT DISTINCT(`value`) as `category` FROM `metadata_custom` WHERE `field` = 'tags'");
@@ -88,7 +101,7 @@
 	</style>
 	<form method="post" action="index_api.php">
 	
-	
+		Categories
 		<select name="category[]" multiple>
 		<?php
 			if( sizeof($categories) > 0){
@@ -102,6 +115,7 @@
 			}
 		?>
 		</select>
+		Search Pre-Filter
 		<input type="text" name="search" value="<?php echo $searchFilter; ?>" placeholder="keyword to search for" />
 		Order by:
 		<select name="orderBy">
@@ -114,6 +128,19 @@
 			<option value="Ascending" <?php echo ($ascDesc == "ASC") ? 'selected' : ''; ?>>Ascending</option>
 			<option value="Descending" <?php echo ($ascDesc != "ASC") ? 'selected' : ''; ?>>Descending</option>
 		</select>
+		Items Per Load
+		<select name="itemsPerPage">
+		<?php
+			for($x=5; $x<35; $x+=5){ //5 - 30
+				echo '<option value="'.$x.'"'.($x==$PAGE_SIZE ? ' selected':'').'>'.$x.'</option>';
+			}
+		?>
+		</select>
+		Show Image
+		<select name="showImage">
+			<option value="yes" <?php echo ($showImage == "yes") ? 'selected' : ''; ?>>Yes</option>
+			<option value="no"  <?php echo ($showImage == "no") ? 'selected' : ''; ?>>No</option>
+		</select>
 		
 		<input type="submit" value="Submit"/>
 	</form>
@@ -124,20 +151,20 @@
 	
 	
 	<?php
-		$apiRequest = '&category='.implode(",",$searchCategory).'&search='.$searchFilter.'&ascDesc='.$ascDesc.'&orderBy='.$orderBy; //need the ?page = x in JS
+		$apiRequest = '&category='.implode(",",$searchCategory).'&search='.$searchFilter.'&ascDesc='.$ascDesc.'&orderBy='.$orderBy.'&itemsPerPage='.$PAGE_SIZE.'&showImage='.$showImage; //need the ?page = x in JS
 	?>
 	<script>
 	$(function(){	
 		var onPage = 1;
 		var apiStr = "<?php echo $apiRequest; ?>";
 		
-		console.log("performing Query;")
+		//console.log("performing Query;")
 		
 		function loadMore(){
 			$('#loadMore').html("<img src='css/gif-load.gif' />");
 			
-			$.getJSON( "http://localhost:85/api.php?page=" + onPage + apiStr, function( data ) {
-			 console.log( data );
+			$.getJSON( "http://205.189.20.167:85/api.php?page=" + onPage + apiStr, function( data ) {
+			 //console.log( data );
 			 
 			 if( typeof data !== 'undefined' ){
 				var numResults = data["NumResults"];
@@ -147,6 +174,7 @@
 				var itemsPerPage = data["itemsPerPage"];
 				var totalPages = data["totalPages"];
 				var results = data["results"];
+				var showImage = data["showImage"];
 				
 				if( currentPage == onPage && onPage < totalPages){
 					onPage++;
@@ -159,8 +187,8 @@
 				
 				if( results.length == numResults){
 					for(var r=0; r < numResults; r++){
-						//console.log( results[r][""])
-						aHtml += '<div class="item"><img src="' + results[r]["image"] + '"/><p>' + results[r]["summary"] + '</p></div>';
+						//console.log( results[r]);
+						aHtml += '<div class="item"><a target="_blank" href="' + results[r]["url"] + '">' + ( showImage == "yes" ? '<img src="' + results[r]["image"] + '"/>' : results[r]["title"]) + '</a><p>' + results[r]["summary"] + '</p><p>Tags:' + results[r]["tags"] + '<br />last_published_at: ' + results[r]["last_published_at"] + '<br />created_at: '  +  results[r]["created_at"] + '<br />updated_at: ' +  results[r]["updated_at"] + '</p></div>';
 					}
 				}
 				$('#items').append(aHtml);
