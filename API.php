@@ -56,6 +56,8 @@
 			$orderBy = "cd";
 		}else if( $_REQUEST['orderBy'] == "lpd" ){ //publish date
 			$orderBy = "lpd";
+		}else if( $_REQUEST['orderBy'] == "ua" ){ //publish date
+			$orderBy = "ua";	
 		}else{
 			$orderBy = "n"; //name
 		}
@@ -160,7 +162,9 @@
 								md.`title`,
 								md.`description`,
 								md.`last_published_at`,
-								md.`created_at`
+								md.`created_at`,
+								md.`updated_at`,
+								(SELECT GROUP_CONCAT(mci.`value`) FROM `metadata_custom` mci WHERE mci.`field` = 'tags' AND mci.`page_id` = mdc.`page_id` group by mdc.`page_id`) as `tags`
 							FROM 
 								`metadata_custom` mdc 
 							INNER JOIN 
@@ -178,7 +182,7 @@
 								AND	(p.`content` LIKE :search OR md.`display_name` LIKE :search OR md.`title` LIKE :search) 
 								
 							ORDER BY
-								".($orderBy == "n" ? "p.`name`" : ( $orderBy == "lpd" ? 'md.`last_published_at`' : 'md.`created_at`' ) )."
+								".($orderBy == "n" ? "`name`" : ($orderBy == "ua" ? "`updated_at`" :( $orderBy == "lpd" ? '`last_published_at`' : '`created_at`' ) ) )."
 							".$ascDesc."
 							LIMIT :start, :pageSize";
 							
@@ -204,7 +208,9 @@
 									`title`,
 									`description`,
 									`last_published_at`,
-									`created_at`
+									`created_at`,
+									`updated_at`,
+									`tags`
 								FROM 
 								(";
 								
@@ -223,7 +229,9 @@
 									md.`title`,
 									md.`description`,
 									md.`last_published_at`,
-									md.`created_at`
+									md.`created_at`,
+									md.`updated_at`,
+									(SELECT GROUP_CONCAT(mci.`value`) FROM `metadata_custom` mci WHERE mci.`field` = 'tags' AND mci.`page_id` = mdc.`page_id` group by mdc.`page_id`) as `tags`
 								FROM 
 									`metadata_custom` mdc 
 								INNER JOIN 
@@ -243,8 +251,8 @@
 
 						$query.=" ) mul
 								ORDER BY
-									".($orderBy == "n" ? "`name`" : ( $orderBy == "lpd" ? '`last_published_at`' : '`created_at`' ) )."
-								".$ascDesc."
+									".($orderBy == "n" ? "`name`" : ($orderBy == "ua" ? "`updated_at`" :( $orderBy == "lpd" ? '`last_published_at`' : '`created_at`' ) ) )."
+							".$ascDesc."
 								LIMIT :start, :pageSize";
 								
 						$query = $conn->prepare($query);	
@@ -350,8 +358,9 @@
 								
 								
 							//echo '</p>';
+							$tags = $row['tags'];
 							
-							$items[] = array("title"=> $title, "Summary"=> $summary, "image"=>$trueImageURL);
+							$items[] = array("title"=> $title, "summary"=> $summary, "image"=>$trueImageURL,"tags"=>$tags);
 							
 						}
 						

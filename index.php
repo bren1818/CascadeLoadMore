@@ -45,6 +45,8 @@
 				$orderBy = "cd";
 			}else if( $_POST['orderBy'] == "lpd" ){ //publish date
 				$orderBy = "lpd";
+			}else if( $_POST['orderBy'] == "ua" ){ //updated at
+				$orderBy = "ua";	
 			}else{
 				$orderBy = "n"; //name
 			}
@@ -88,6 +90,8 @@
 				$orderBy = "cd";
 			}else if( $_REQUEST['orderBy'] == "lpd" ){ //publish date
 				$orderBy = "lpd";
+			}else if( $_REQUEST['orderBy'] == "ua" ){ //publish date
+				$orderBy = "ua";	
 			}else{
 				$orderBy = "n"; //name
 			}
@@ -139,6 +143,11 @@
 			<option value="n" <?php echo ($orderBy == "n") ? 'selected' : ''; ?>>Name</option>
 			<option value="cd" <?php echo ($orderBy == "cd") ? 'selected' : ''; ?>>Creation Date</option>
 			<option value="lpd" <?php echo ($orderBy == "lpd") ? 'selected' : ''; ?>>Last Publish Date</option>
+			<option value="ua" <?php echo ($orderBy == "ua") ? 'selected' : ''; ?>>Updated at</option>
+			
+			
+			
+			
 		</select>
 		<select name="ascDesc">
 			<option value="Ascending" <?php echo ($ascDesc == "ASC") ? 'selected' : ''; ?>>Ascending</option>
@@ -269,7 +278,9 @@
 							md.`title`,
 							md.`description`,
 							md.`last_published_at`,
-							md.`created_at`
+							md.`created_at`,
+							md.`updated_at`,
+							(SELECT GROUP_CONCAT(mci.`value`) FROM `metadata_custom` mci WHERE mci.`field` = 'tags' AND mci.`page_id` = mdc.`page_id` group by mdc.`page_id`) as `tags`
 						FROM 
 							`metadata_custom` mdc 
 						INNER JOIN 
@@ -287,8 +298,8 @@
 							AND	(p.`content` LIKE :search OR md.`display_name` LIKE :search OR md.`title` LIKE :search) 
 							
 						ORDER BY
-							".($orderBy == "n" ? "p.`name`" : ( $orderBy == "lpd" ? 'md.`last_published_at`' : 'md.`created_at`' ) )."
-						".$ascDesc."
+							".($orderBy == "n" ? "`name`" : ($orderBy == "ua" ? "`updated_at`" :( $orderBy == "lpd" ? '`last_published_at`' : '`created_at`' ) ) )."
+							".$ascDesc."
 						LIMIT :start, :pageSize";
 						
 						$query = $conn->prepare($query);	
@@ -313,7 +324,10 @@
 								`title`,
 								`description`,
 								`last_published_at`,
-								`created_at`
+								`created_at`,
+								`updated_at`,
+								`tags`
+								
 							FROM 
 							(";
 							
@@ -322,6 +336,11 @@
 							$query .= " UNION DISTINCT ";
 						}
 						$category = ":cat".$x;
+						
+						//cmsID? (page)
+						// Include grouped Tag?
+						//SELECT mc.`page_id`, (SELECT GROUP_CONCAT(`value`) FROM `metadata_custom` WHERE `field` = 'tags' AND `page_id` = mc.`page_id` group by mc.`page_id`) FROM `metadata_custom` mc WHERE mc.`field` = 'tags' 
+						
 						$query .=	" SELECT 
 								mdc.`page_id`,
 								p.`name`,
@@ -332,7 +351,10 @@
 								md.`title`,
 								md.`description`,
 								md.`last_published_at`,
-								md.`created_at`
+								md.`created_at`,
+								md.`updated_at`,
+								(SELECT GROUP_CONCAT(mci.`value`) FROM `metadata_custom` mci WHERE mci.`field` = 'tags' AND mci.`page_id` = mdc.`page_id` group by mdc.`page_id`) as `tags`
+								
 							FROM 
 								`metadata_custom` mdc 
 							INNER JOIN 
@@ -352,7 +374,7 @@
 
 					$query.=" ) mul
 							ORDER BY
-								".($orderBy == "n" ? "`name`" : ( $orderBy == "lpd" ? '`last_published_at`' : '`created_at`' ) )."
+								".($orderBy == "n" ? "`name`" : ($orderBy == "ua" ? "`updated_at`" :( $orderBy == "lpd" ? '`last_published_at`' : '`created_at`' ) ) )."
 							".$ascDesc."
 							LIMIT :start, :pageSize";
 							
@@ -393,7 +415,8 @@
 						echo '<p><a target="_blank" href="'.$url.'">'.$title.'</a><br />';
 						
 					
-						$pageHTML = file_get_contents($url);
+						$pageHTML = file_get_contents($url); //Check if URL is 404?
+						
 						$doc = new DOMDocument();
 						
 						//keep the errors away in parsing
@@ -456,6 +479,8 @@
 							
 							
 						echo '</p>';
+						$tags = $row["tags"];
+						echo '<p>Tags: '.$tags.'</p>';
 					}
 					
 					if( $totalResults > $query->rowCount()  ){
@@ -515,9 +540,5 @@
 			}
 		}
 	}
-	
-	//APIFetch { curr_page , category, term, items_per_fetch }
-		//API REPLY { curr_page, pages, }
-
 ?>
 <hr />
