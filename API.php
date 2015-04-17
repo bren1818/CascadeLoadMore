@@ -169,7 +169,7 @@
 					if( is_array($searchCategory) && sizeof($searchCategory) == 1 ){
 					
 					$query = 
-							"SELECT 
+							"SELECT DISTINCT
 								mdc.`page_id`,
 								p.`name`,
 								p.`cms_id`,

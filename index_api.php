@@ -85,14 +85,19 @@
 	<link rel="stylesheet" href="css/chosen.min.css" />
 	<script src="js/jquery-1.11.2.min.js"></script>
 	<script src="js/chosen.jquery.min.js"></script>
+	<script src="http://cdnjs.cloudflare.com/ajax/libs/jquery.isotope/2.2.0/isotope.pkgd.min.js"></script>
+	
 	<script>
 		$(function(){
 			$('select[name="category[]"]').chosen();
 		});
+		
+		
 	</script>
 	<style>
 		#items{ background-position: center center; background-image: url('css/gif-load.gif'); background-repeat: no-repeat; width: 100%; min-height: 600px;}
 		#items.loaded{ background-image: none; }
+		#items li{ }
 		#items .item{ float: left; margin: 5px; width: 400px; height: 400px; overflow: hidden; }
 		#items .item img{ max-width:350px; max-height: 350px;}
 		.clear{ clear: both; }
@@ -147,17 +152,21 @@
 
 	<hr />
 	
-	API String: <?php echo '?page=1&category='.implode(",",$searchCategory).'&search='.$searchFilter.'&ascDesc='.$ascDesc.'&orderBy='.$orderBy; ?>
+	API String: <?php echo '?page=1&category='.implode(",",$searchCategory).'&search='.$searchFilter.'&ascDesc='.$ascDesc.'&orderBy='.$orderBy.'&itemsPerPage='.$PAGE_SIZE.'&showImage='.$showImage; ?>
 	
 	
 	<?php
 		$apiRequest = '&category='.implode(",",$searchCategory).'&search='.$searchFilter.'&ascDesc='.$ascDesc.'&orderBy='.$orderBy.'&itemsPerPage='.$PAGE_SIZE.'&showImage='.$showImage; //need the ?page = x in JS
 	?>
-	<script>
+	<hr />
+	<input type="text" id="filter" value="" placeholder="filter" />
+	<hr />
+	
+	<script type="text/javascript">
 	$(function(){	
 		var onPage = 1;
 		var apiStr = "<?php echo $apiRequest; ?>";
-		
+		 var $container = $('#items');
 		//console.log("performing Query;")
 		
 		function loadMore(){
@@ -191,9 +200,31 @@
 						aHtml += '<div class="item"><a target="_blank" href="' + results[r]["url"] + '">' + ( showImage == "yes" ? '<img src="' + results[r]["image"] + '"/>' : results[r]["title"]) + '</a><p>' + results[r]["summary"] + '</p><p>Tags:' + results[r]["tags"] + '<br />last_published_at: ' + results[r]["last_published_at"] + '<br />created_at: '  +  results[r]["created_at"] + '<br />updated_at: ' +  results[r]["updated_at"] + '</p></div>';
 					}
 				}
+				if( $("#items").data('isotope') ){
+					$container.isotope('destroy');
+				}
+				
 				$('#items').append(aHtml);
 				
 			 }
+			 
+			
+				// init
+				$container.isotope({
+				  // options
+				  itemSelector: '.item',
+				  layoutMode: 'fitRows',
+				  filter: function() {
+					  if( $.trim( $('#filter').val() ) != "" ){
+						var t = $(this).text().toLowerCase();
+						var f = t.indexOf( $.trim( $('#filter').val().toLowerCase() ) ); 
+						return (f > 0) ? true : false;
+					  }else{
+						  return true;
+					  }
+				}
+				});
+			 
 			  $('#items').addClass('loaded');
 			});
 		}
@@ -204,10 +235,29 @@
 			loadMore();
 		});
 		
+		$('#filter').on("keyup", function(){
+			console.log("filtering on: " + $('#filter').val() );
+			$container.isotope({
+				  // options
+				  itemSelector: '.item',
+				  layoutMode: 'fitRows',
+				  filter: function() {
+					  if( $.trim( $('#filter').val() ) != "" ){
+						var t = $(this).text().toLowerCase();
+						var f = t.indexOf( $.trim( $('#filter').val().toLowerCase() ) ); 
+						return (f > 0) ? true : false;
+					  }else{
+						  return true;
+					  }
+				}
+			});
+		});
+		
 	});
+	
+	
 	</script>
 	<div id="items">
-		
 	</div>
 	<div class="clear"></div>
 	<div id="loadMore"></div>
