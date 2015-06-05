@@ -175,54 +175,53 @@
 			$.getJSON( "http://205.189.20.167:85/api.php?page=" + onPage + apiStr, function( data ) {
 			 //console.log( data );
 			 
-			 if( typeof data !== 'undefined' ){
-				var numResults = data["NumResults"];
-				var totalResults = data["TotalResults"];
-				var category =  data["category"];
-				var currentPage = data["currentPage"];
-				var itemsPerPage = data["itemsPerPage"];
-				var totalPages = data["totalPages"];
-				var results = data["results"];
-				var showImage = data["showImage"];
-				
-				if( currentPage == onPage && onPage < totalPages){
-					onPage++;
-					$('#loadMore').html("Load More");
-				}else{
-					$('#loadMore').remove();
-				}
-				
-				var aHtml = "";
-				
-				if( results.length == numResults){
-					for(var r=0; r < numResults; r++){
-						//console.log( results[r]);
-						aHtml += '<div class="item"><a target="_blank" href="' + results[r]["url"] + '">' + ( showImage == "yes" ? '<img src="' + results[r]["image"] + '"/>' : results[r]["title"]) + '</a><p>' + results[r]["summary"] + '</p><p>Tags:' + results[r]["tags"] + '<br />last_published_at: ' + results[r]["last_published_at"] + '<br />created_at: '  +  results[r]["created_at"] + '<br />updated_at: ' +  results[r]["updated_at"] + '</p></div>';
+				if( typeof data !== 'undefined' ){
+					var numResults = data["NumResults"];
+					var totalResults = data["TotalResults"];
+					var category =  data["category"];
+					var currentPage = data["currentPage"];
+					var itemsPerPage = data["itemsPerPage"];
+					var totalPages = data["totalPages"];
+					var results = data["results"];
+					var showImage = data["showImage"];
+					
+					if( currentPage == onPage && onPage < totalPages){
+						onPage++;
+						$('#loadMore').html("Load More");
+					}else{
+						$('#loadMore').remove();
 					}
+					
+					var aHtml = "";
+					
+					if( results.length == numResults){
+						for(var r=0; r < numResults; r++){
+							//console.log( results[r]);
+							aHtml += '<div class="item"><a target="_blank" href="' + results[r]["url"] + '">' + ( showImage == "yes" ? '<img src="' + results[r]["image"] + '"/>' : results[r]["title"]) + '</a><p>' + results[r]["summary"] + '</p><p>Tags:' + results[r]["tags"] + '<br />last_published_at: ' + results[r]["last_published_at"] + '<br />created_at: '  +  results[r]["created_at"] + '<br />updated_at: ' +  results[r]["updated_at"] + '</p></div>';
+						}
+					}
+					if( $("#items").data('isotope') ){
+						$container.isotope('destroy');
+					}
+					
+					$('#items').append(aHtml);
+					
 				}
-				if( $("#items").data('isotope') ){
-					$container.isotope('destroy');
-				}
-				
-				$('#items').append(aHtml);
-				
-			 }
-			 
-			
+		
 				// init
 				$container.isotope({
-				  // options
-				  itemSelector: '.item',
-				  layoutMode: 'fitRows',
-				  filter: function() {
-					  if( $.trim( $('#filter').val() ) != "" ){
-						var t = $(this).text().toLowerCase();
-						var f = t.indexOf( $.trim( $('#filter').val().toLowerCase() ) ); 
-						return (f > 0) ? true : false;
-					  }else{
-						  return true;
-					  }
-				}
+					// options
+					itemSelector: '.item',
+					layoutMode: 'fitRows',
+					filter: function() {
+						if( $.trim( $('#filter').val() ) != "" ){
+							var t = $(this).text().toLowerCase();
+							var f = t.indexOf( $.trim( $('#filter').val().toLowerCase() ) ); 
+							return (f > 0) ? true : false;
+						}else{
+							return true;
+						}
+					}
 				});
 			 
 			  $('#items').addClass('loaded');

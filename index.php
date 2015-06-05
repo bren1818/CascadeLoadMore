@@ -159,7 +159,10 @@
 
 	<hr />
 	
-	API String: <?php echo '?page=1&category='.implode(",",$searchCategory).'&search='.$searchFilter.'&ascDesc='.$ascDesc.'&orderBy='.$orderBy; ?>
+	API String: <a href="/index_api.php<?php echo '?page=1&category='.implode(",",$searchCategory).'&search='.$searchFilter.'&ascDesc='.$ascDesc.'&orderBy='.$orderBy; ?>"><?php echo '?page=1&category='.implode(",",$searchCategory).'&search='.$searchFilter.'&ascDesc='.$ascDesc.'&orderBy='.$orderBy; ?></a>
+	
+	
+	API Query: <a href="/api.php<?php $apiRequest = '?category='.implode(",",$searchCategory).'&search='.$searchFilter.'&ascDesc='.$ascDesc.'&orderBy='.$orderBy.'&itemsPerPage=30&showImage=1'; echo $apiRequest; ?>">/api.php<?php echo $apiRequest; ?></a>
 	
 	<form method="post" action="index.php">
 	
