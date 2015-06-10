@@ -81,18 +81,17 @@
 		}
 	}
 	?>
-	
+	<!DOCTYPE html>
+	<html>
+	<head>
 	<link rel="stylesheet" href="css/chosen.min.css" />
 	<script src="js/jquery-1.11.2.min.js"></script>
 	<script src="js/chosen.jquery.min.js"></script>
 	<script src="http://cdnjs.cloudflare.com/ajax/libs/jquery.isotope/2.2.0/isotope.pkgd.min.js"></script>
-	
 	<script>
 		$(function(){
 			$('select[name="category[]"]').chosen();
 		});
-		
-		
 	</script>
 	<style>
 		#items{ background-position: center center; background-image: url('css/gif-load.gif'); background-repeat: no-repeat; width: 100%; min-height: 600px;}
@@ -104,6 +103,8 @@
 		#loadMore{cursor: pointer;}
 
 	</style>
+	</head>
+	<body>
 	<form method="post" action="index_api.php">
 	
 		Categories
@@ -169,6 +170,22 @@
 		 var $container = $('#items');
 		//console.log("performing Query;")
 		
+		//initialize empty container
+		$container.isotope({
+			// options
+			itemSelector: '.item',
+			layoutMode: 'fitRows',
+			filter: function() {
+				if( $.trim( $('#filter').val() ) != "" ){
+					var t = $(this).text().toLowerCase();
+					var f = t.indexOf( $.trim( $('#filter').val().toLowerCase() ) ); 
+					return (f > 0) ? true : false;
+				}else{
+					return true;
+				}
+			}
+		});
+		
 		function loadMore(){
 			$('#loadMore').html("<img src='css/gif-load.gif' />");
 			
@@ -193,38 +210,29 @@
 					}
 					
 					var aHtml = "";
-					
+					var jumpToID = "";
 					if( results.length == numResults){
 						for(var r=0; r < numResults; r++){
 							//console.log( results[r]);
+							if( r == 0){
+								jumpToID = results[r]["url"];
+							}
 							aHtml += '<div class="item"><a target="_blank" href="' + results[r]["url"] + '">' + ( showImage == "yes" ? '<img src="' + results[r]["image"] + '"/>' : results[r]["title"]) + '</a><p>' + results[r]["summary"] + '</p><p>Tags:' + results[r]["tags"] + '<br />last_published_at: ' + results[r]["last_published_at"] + '<br />created_at: '  +  results[r]["created_at"] + '<br />updated_at: ' +  results[r]["updated_at"] + '</p></div>';
 						}
 					}
-					if( $("#items").data('isotope') ){
-						$container.isotope('destroy');
-					}
+					//if( $("#items").data('isotope') ){
+					//	$container.isotope('destroy');
+					//}
+
+					$('#items').isotope('insert', $(aHtml) );
 					
-					$('#items').append(aHtml);
+					bindwindowautoload();	
+					$('#items').addClass('loaded');
+					
+					return; //prevent the jump
 					
 				}
 		
-				// init
-				$container.isotope({
-					// options
-					itemSelector: '.item',
-					layoutMode: 'fitRows',
-					filter: function() {
-						if( $.trim( $('#filter').val() ) != "" ){
-							var t = $(this).text().toLowerCase();
-							var f = t.indexOf( $.trim( $('#filter').val().toLowerCase() ) ); 
-							return (f > 0) ? true : false;
-						}else{
-							return true;
-						}
-					}
-				});
-			 
-			  $('#items').addClass('loaded');
 			});
 		}
 		
@@ -236,7 +244,11 @@
 		
 		$('#filter').on("keyup", function(){
 			console.log("filtering on: " + $('#filter').val() );
-			$container.isotope({
+			//unbind the scroll load
+			console.log("un-binding scroll");
+			$(window).unbind("scroll");
+			
+			$('#items').isotope({
 				  // options
 				  itemSelector: '.item',
 				  layoutMode: 'fitRows',
@@ -250,15 +262,44 @@
 					  }
 				}
 			});
+			
+			if( $.trim($('#filter').val()) == ""){
+				console.log("Re-binding Scroll");
+				bindwindowautoload();
+			}
 		});
 		
+		function bindwindowautoload(){
+			$(window).unbind("scroll");
+			$(window).scroll(function () { 	
+				if (document.documentElement.scrollTop){ 
+					currentScroll = document.documentElement.scrollTop; 
+				}else{	
+					currentScroll = document.body.scrollTop; 
+				}
+			  
+				totalHeight = document.body.offsetHeight;
+				visibleHeight = document.documentElement.clientHeight;
+				
+				if ( (totalHeight -250) <= currentScroll + visibleHeight ){
+					console.log("loading some more items");
+					$(window).unbind("scroll"); //dont keep triggering until more items are loaded
+					if( $('#loadMore').length > 0){
+						loadMore();
+					}
+			   }
+			});
+		}
+		
+		
 	});
-	
-	
 	</script>
+	
 	<div id="items">
 	</div>
 	<div class="clear"></div>
-	<div id="loadMore"></div>
+	<a  href="#loadMore" id="loadMore"></a>
 	
-<hr />
+	<hr />
+</body>
+</html>

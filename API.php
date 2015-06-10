@@ -208,7 +208,7 @@
 							$query = $conn->prepare($query);	
 							
 							$category = $searchCategory[0];
-							if( $category == "ALL" ){
+							if( strtolower($category) == "all" ){
 								$category = "%%";
 							}
 							
